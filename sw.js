@@ -28,9 +28,9 @@ this.addEventListener('fetch', function (event) {
                return resp || fetch(event.request).then(function(response) {
                    //No Cache, so hitting network..
                    caches.open(staticCacheName).then(function (cache){
-                       cache.put(event.request.clone(), response.clone());
+                       cache.put(event.request.clone(), response);
                    });
-                   return response
+                   return response.clone();
                });
         }).catch(function(error) {
             //No cache no network 503 service unaivalable..
