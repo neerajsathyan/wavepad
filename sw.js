@@ -18,23 +18,21 @@ this.addEventListener('activate', function (event) {
     );
 });
 
+
 this.addEventListener('fetch', function (event) {
     let originalResponse;
 
-    event.respondWith(
-        fetch(event.request.clone())
-            .then(function (response) {
-                // Check that the status is OK
-                if (/^0|([123]\d\d)|(40[14567])|410$/.test(response.status)) {
+    event.respondWith(async function () {
+        const cache = await caches.open(cacheVersion)
 
-                    return response.clone();
-                }
+        const cachedResponsePromise = await cache.match(event.request.clone())
+        const networkResponsePromise = fetch(event.request)
 
-                originalResponse = response;
-                throw new Error('Bad response');
-            })
-            .catch(function (error) {
-                throw new Error('No Network!');
-            })
-    );
+        event.waitUntil(async function () {
+            const networkResponse = await networkResponsePromise
+            await cache.put(event.request.clone(), networkResponse.clone())
+        }())
+
+        return cachedResponsePromise || networkResponsePromise
+    }());
 });
