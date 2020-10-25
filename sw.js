@@ -2,7 +2,7 @@
 
 const version = 'v1.01';
 const staticCachePrefix = 'wave-pd1-static-';
-const cacheVersion = staticCachePrefix + version;
+const staticCacheName = staticCachePrefix + version;
 
 this.addEventListener('activate', function (event) {
     event.waitUntil(
@@ -10,7 +10,7 @@ this.addEventListener('activate', function (event) {
         caches.keys().then(function (keyList) {
             return Promise.all(
                 keyList.filter(function (key) {
-                    return key != cacheVersion;
+                    return key != staticCacheName;
                 }).map(function (key) {
                     return caches.delete(key);
                 }));
@@ -22,19 +22,20 @@ this.addEventListener('fetch', function (event) {
     let originalResponse;
 
     event.respondWith(
-        fetch(event.request.clone())
-            .then(function (response) {
-                // Check that the status is OK
-                if (/^0|([123]\d\d)|(40[14567])|410$/.test(response.status)) {
-
-                    return response.clone();
-                }
-
-                originalResponse = response;
-                throw new Error('Bad response');
-            })
-            .catch(function (error) {
-                throw new Error('No Network!');
-            })
+        caches.match(event.request.clone()).then(function (resp) {
+               return resp || fetch(event.request).then(function(response) {
+                   //No Cache, so hitting network..
+                   caches.open(staticCacheName).then(function (cache){
+                       cache.put(event.request.clone(), response);
+                   });
+                   return response.clone();
+               });
+        }).catch(function(error) {
+            //No cache no network 503 service unaivalable..
+            var myBlob = new Blob();
+            var init = { "status" : 503 , "statusText" : "Service Unaivailable!" };
+            var myResponse = new Response(myBlob,init);
+            return myResponse
+        })
     );
 });
